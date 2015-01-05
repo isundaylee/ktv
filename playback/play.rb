@@ -1,16 +1,8 @@
 require 'optparse'
 require 'fileutils'
 
-TMP_DIR = File.join('/tmp', 'ktv_playback')
-
-SILENCE_OUTPUT = ' 2>&1 >/dev/null'
-EXTRACT_AUDIO_CMD = 'mplayer "%s" -ao pcm:fast:file=%s -vo null -vc null -aid 1' + SILENCE_OUTPUT
-TRANSPOSE_CMD = 'rubberband -p%d "%s" "%s"' + SILENCE_OUTPUT
-PLAYBACK_SEPARATE_CMD = 'mplayer "%s" -audiofile "%s" -delay -0.5' + SILENCE_OUTPUT
-TMP_AUDIO_FILE = File.join(TMP_DIR, 'audio.wav')
-TMP_TRANSPOSED_AUDIO_FILE = File.join(TMP_DIR, 'transposed_audio.wav')
-
-FileUtils.mkdir_p(TMP_DIR)
+require_relative 'player'
+require_relative 'preprocessors/transposer'
 
 options = {}
 OptionParser.new do |opts|
@@ -26,15 +18,15 @@ OptionParser.new do |opts|
 end.parse!
 
 file = ARGV[0]
+player = KTV::Playback::Player.new(file)
 
 options[:transpose] = options[:transpose_up] if options[:transpose_up]
 options[:transpose] = -options[:transpose_down] if options[:transpose_down]
 
 if options[:transpose]
-  puts 'Extracing audio...'
-  `#{EXTRACT_AUDIO_CMD % [file, TMP_AUDIO_FILE]}`
-  puts 'Transposing audio...'
-  `#{TRANSPOSE_CMD % [options[:transpose], TMP_AUDIO_FILE, TMP_TRANSPOSED_AUDIO_FILE]}`
-  puts 'Playing...'
-  `#{PLAYBACK_SEPARATE_CMD % [file, TMP_TRANSPOSED_AUDIO_FILE]}`
+  player.add_preprocessor(KTV::Playback::Preprocessors::Transposer.new(options[:transpose]))
 end
+
+player.preprocess
+player.play
+player.cleanup
