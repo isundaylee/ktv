@@ -37,6 +37,7 @@ module KTV
         @preprocessors.reverse.each do |p|
           if p.respond_to?(:play)
             p.play(@file)
+            pop_prefix
             return
           end
         end
